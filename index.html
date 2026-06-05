@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WA Bulk Sender</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --g: #25D366;
+    --g2: #1aad52;
+    --bg: #0d0d0d;
+    --s1: #141414;
+    --s2: #1a1a1a;
+    --s3: #222;
+    --b: #2a2a2a;
+    --b2: #333;
+    --t: #f0f0f0;
+    --t2: #888;
+    --t3: #555;
+    --r: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--t); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px; }
+
+  /* Top bar */
+  .bar { height: 54px; background: var(--s1); border-bottom: 1px solid var(--b); display: flex; align-items: center; padding: 0 20px; gap: 10px; position: sticky; top: 0; z-index: 99; }
+  .bar-icon { width: 28px; height: 28px; background: var(--g); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .bar-icon svg { width: 16px; height: 16px; fill: #fff; }
+  .bar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--t); }
+  .bar-sub { font-size: 12px; color: var(--t3); margin-left: 2px; }
+  .bar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--b2); color: var(--t2); }
+  .pill.green { border-color: rgba(37,211,102,.3); color: var(--g); background: rgba(37,211,102,.07); }
+
+  /* Layout */
+  .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+
+  /* Panel */
+  .panel { background: var(--s1); border: 1px solid var(--b); border-radius: var(--r); overflow: hidden; }
+  .ph { padding: 14px 16px; border-bottom: 1px solid var(--b); display: flex; align-items: center; gap: 10px; }
+  .ph-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g); flex-shrink: 0; }
+  .ph h2 { font-size: 13px; font-weight: 600; color: var(--t); letter-spacing: -0.2px; }
+  .ph .ph-count { margin-left: auto; font-size: 11px; color: var(--g); background: rgba(37,211,102,.1); padding: 2px 8px; border-radius: 999px; display: none; }
+  .pb { padding: 16px; }
+  .left { display: flex; flex-direction: column; gap: 12px; }
+  .right { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 70px; }
+
+  /* Steps */
+  .steps { display: flex; align-items: center; gap: 0; padding: 14px 16px; background: var(--s1); border: 1px solid var(--b); border-radius: var(--r); }
+  .si { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; position: relative; }
+  .si:not(:last-child)::after { content: ''; position: absolute; top: 11px; left: calc(50% + 15px); right: calc(-50% + 15px); height: 1px; background: var(--b2); }
+  .si.done:not(:last-child)::after { background: var(--g); }
+  .sc { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--b2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--t3); z-index: 1; background: var(--s1); transition: all .25s; }
+  .si.done .sc { background: var(--g); border-color: var(--g); color: #fff; }
+  .si.active .sc { border-color: var(--g); color: var(--g); }
+  .sl { font-size: 10px; color: var(--t3); font-weight: 500; }
+  .si.done .sl, .si.active .sl { color: var(--g); }
+
+  /* Upload */
+  .dropzone { border: 1.5px dashed var(--b2); border-radius: 8px; padding: 28px 16px; text-align: center; cursor: pointer; transition: all .2s; }
+  .dropzone:hover, .dropzone.drag { border-color: var(--g); background: rgba(37,211,102,.04); }
+  .dropzone svg { width: 32px; height: 32px; color: var(--t3); margin-bottom: 10px; transition: color .2s; }
+  .dropzone:hover svg, .dropzone.drag svg { color: var(--g); }
+  .dropzone p { font-size: 13px; color: var(--t2); }
+  .dropzone strong { color: var(--t); }
+  .dropzone .fmt { font-size: 11px; color: var(--t3); margin-top: 4px; }
+
+  /* Or */
+  .or { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+  .or hr { flex: 1; border: none; border-top: 1px solid var(--b); }
+  .or span { font-size: 11px; color: var(--t3); white-space: nowrap; }
+
+  /* Stats */
+  .stats { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--b); }
+  .sp { flex: 1; background: var(--s2); border: 1px solid var(--b); border-radius: 8px; padding: 8px 10px; text-align: center; }
+  .sp .v { font-size: 18px; font-weight: 700; color: var(--t); }
+  .sp .l { font-size: 10px; color: var(--t3); margin-top: 1px; }
+  .sp.ok .v { color: var(--g); }
+  .sp.bad .v { color: #f87171; }
+
+  /* Form */
+  label.lbl { display: block; font-size: 11px; font-weight: 500; color: var(--t3); margin-bottom: 6px; letter-spacing: .3px; text-transform: uppercase; }
+  input, select, textarea {
+    width: 100%; padding: 9px 12px; background: var(--s2); border: 1px solid var(--b); border-radius: 8px;
+    font-size: 13px; color: var(--t); font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--g); box-shadow: 0 0 0 3px rgba(37,211,102,.1); }
+  select option { background: var(--s2); }
+  textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+  .hint { font-size: 11px; color: var(--t3); margin-top: 5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fld { display: flex; flex-direction: column; }
+
+  /* Var chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip { font-size: 11px; background: rgba(37,211,102,.08); border: 1px solid rgba(37,211,102,.2); color: var(--g); border-radius: 999px; padding: 3px 9px; cursor: pointer; font-weight: 500; transition: background .15s; }
+  .chip:hover { background: rgba(37,211,102,.15); }
+  .char-c { font-size: 11px; color: var(--t3); text-align: right; margin-top: 4px; }
+
+  /* Tabs */
+  .tabs { display: flex; border: 1px solid var(--b); border-radius: 8px; overflow: hidden; }
+  .tab { flex: 1; padding: 8px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--s2); color: var(--t2); border: none; transition: all .15s; text-align: center; }
+  .tab+.tab { border-left: 1px solid var(--b); }
+  .tab.on { background: var(--g); color: #fff; }
+
+  /* Info banners */
+  .info { display: flex; gap: 8px; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; margin-top: 10px; }
+  .info svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+  .info.warn { background: rgba(251,191,36,.06); border: 1px solid rgba(251,191,36,.15); color: #fbbf24; }
+  .info.ok { background: rgba(37,211,102,.06); border: 1px solid rgba(37,211,102,.15); color: #4ade80; }
+  .info.blue { background: rgba(96,165,250,.06); border: 1px solid rgba(96,165,250,.15); color: #60a5fa; }
+
+  /* Table */
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--b); border-radius: 8px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--s2); padding: 7px 10px; text-align: left; font-weight: 500; color: var(--t3); border-bottom: 1px solid var(--b); white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--b); color: var(--t2); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--s2); color: var(--t); }
+
+  /* Progress */
+  .pbg { background: var(--s2); border: 1px solid var(--b); border-radius: 999px; height: 6px; overflow: hidden; margin: 10px 0; }
+  .pfill { height: 100%; background: var(--g); border-radius: 999px; transition: width .4s ease; }
+  .pstats { display: flex; gap: 12px; font-size: 12px; flex-wrap: wrap; }
+  .ps { display: flex; align-items: center; gap: 4px; }
+  .ps.ok { color: var(--g); }
+  .ps.fail { color: #f87171; }
+  .ps.pend { color: var(--t3); }
+
+  /* Log */
+  .log { background: #0a0a0a; border: 1px solid var(--b); border-radius: 8px; padding: 10px 12px; height: 150px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: var(--t3); margin-top: 10px; }
+  .ll { padding: 1.5px 0; }
+  .ll.ok { color: #4ade80; }
+  .ll.err { color: #f87171; }
+  .ll.warn { color: #fbbf24; }
+
+  /* Buttons */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; width: 100%; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-g { background: var(--g); color: #fff; }
+  .btn-g:hover { background: var(--g2); }
+  .btn-g:active { transform: scale(.98); }
+  .btn-g:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-stop { background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+  .btn-stop:hover { background: rgba(239,68,68,.15); }
+  .btn-ghost { background: transparent; color: var(--t3); border: 1px solid var(--b); font-size: 12px; padding: 8px 14px; }
+  .btn-ghost:hover { border-color: var(--b2); color: var(--t2); }
+
+  /* Summary */
+  .sum-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--b); font-size: 12px; }
+  .sum-row:last-child { border: none; }
+  .sum-row .k { color: var(--t3); }
+  .sum-row .v { font-weight: 600; color: var(--t); }
+  .sum-row .v.g { color: var(--g); }
+
+  /* Tips */
+  .tip { display: flex; gap: 8px; font-size: 12px; color: var(--t3); padding: 6px 0; border-bottom: 1px solid var(--b); line-height: 1.5; }
+  .tip:last-child { border: none; }
+  .tip-icon { font-size: 13px; flex-shrink: 0; }
+
+  /* API fields */
+  .api-f { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--b); }
+
+  /* Phone col row */
+  .pcol { margin-top: 10px; }
+
+  .hidden { display: none !important; }
+  #fi { display: none; }
+
+  @media(max-width:700px) {
+    .wrap { grid-template-columns: 1fr; }
+    .right { position: static; }
+    .grid2 { grid-template-columns: 1fr; }
+    .bar-sub, .bar-right .pill:not(.green) { display: none; }
+  }
+  @media(max-width:480px) {
+    .wrap { padding: 12px 10px 40px; }
+    .pb { padding: 12px; }
+    .sl { display: none; }
+  }
+
+  @keyframes up { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .panel { animation: up .25s ease both; }
+  .left > .panel:nth-child(2) { animation-delay: .04s; }
+  .left > .panel:nth-child(3) { animation-delay: .08s; }
+  .left > .panel:nth-child(4) { animation-delay: .12s; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="bar-icon">
+    <svg viewBox="0 0 32 32"><path d="M16 1C7.72 1 1 7.72 1 16c0 2.68.7 5.2 1.93 7.38L1 31l7.87-1.89A15 15 0 0 0 16 31c8.28 0 15-6.72 15-15S24.28 1 16 1zm0 27.5c-2.42 0-4.7-.65-6.67-1.79l-.48-.28-4.66 1.12 1.17-4.56-.31-.5A12.47 12.47 0 0 1 3.5 16C3.5 9.1 9.1 3.5 16 3.5S28.5 9.1 28.5 16 22.9 28.5 16 28.5zm6.86-9.33c-.37-.19-2.2-1.08-2.54-1.2-.34-.13-.59-.19-.84.18-.25.37-.96 1.2-1.18 1.45-.22.25-.43.28-.8.09-.37-.19-1.56-.57-2.97-1.83-1.1-.98-1.84-2.19-2.06-2.56-.21-.37-.02-.57.16-.75.17-.17.37-.44.56-.66.19-.22.25-.37.37-.62.12-.25.06-.47-.03-.66-.09-.19-.84-2.03-1.15-2.78-.3-.73-.62-.63-.84-.64H9.5c-.22 0-.59.08-.9.37-.31.29-1.18 1.15-1.18 2.8 0 1.65 1.2 3.25 1.37 3.47.16.22 2.37 3.62 5.74 5.08 3.37 1.47 3.37.98 3.98.92.6-.06 1.96-.8 2.24-1.57.28-.77.28-1.43.19-1.57-.08-.14-.3-.22-.67-.41z"/></svg>
+  </div>
+  <span class="bar-title">WA Bulk Sender</span>
+  <span class="bar-sub">— send to thousands</span>
+  <div class="bar-right">
+    <span class="pill green" id="top-count" style="display:none">0 loaded</span>
+    <span class="pill">Free Tool</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="left">
+
+    <!-- Steps -->
+    <div class="steps">
+      <div class="si active" id="st1"><div class="sc">1</div><div class="sl">Contacts</div></div>
+      <div class="si" id="st2"><div class="sc">2</div><div class="sl">Message</div></div>
+      <div class="si" id="st3"><div class="sc">3</div><div class="sl">Send</div></div>
+    </div>
+
+    <!-- Contacts -->
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-dot"></div>
+        <h2>Contacts</h2>
+        <span class="ph-count" id="ph-cnt">0</span>
+      </div>
+      <div class="pb">
+        <div class="dropzone" id="dz" onclick="document.getElementById('fi').click()">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p><strong>Drop file here</strong> or click to browse</p>
+          <div class="fmt">.xlsx &nbsp;·&nbsp; .xls &nbsp;·&nbsp; .csv</div>
+        </div>
+        <input type="file" id="fi" accept=".xlsx,.xls,.csv">
+
+        <div class="or"><hr><span>or paste manually</span><hr></div>
+
+        <label class="lbl">Phone numbers</label>
+        <textarea id="mn" placeholder="+919876543210&#10;+918765432109&#10;+917654321098&#10;...one per line"></textarea>
+        <div class="hint">Include country code &nbsp;·&nbsp; +91 India &nbsp;·&nbsp; +1 USA &nbsp;·&nbsp; +44 UK</div>
+
+        <div class="stats hidden" id="st-row">
+          <div class="sp"><div class="v" id="s-tot">0</div><div class="l">Total</div></div>
+          <div class="sp ok"><div class="v" id="s-ok">0</div><div class="l">Valid</div></div>
+          <div class="sp bad"><div class="v" id="s-bad">0</div><div class="l">Invalid</div></div>
+        </div>
+
+        <div id="prev-w" class="hidden">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr id="prev-h"></tr></thead>
+              <tbody id="prev-b"></tbody>
+            </table>
+          </div>
+          <div class="pcol">
+            <label class="lbl">Phone number column</label>
+            <select id="pcol" onchange="updateStats()"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message -->
+    <div class="panel">
+      <div class="ph"><div class="ph-dot"></div><h2>Message</h2></div>
+      <div class="pb">
+        <label class="lbl">Template</label>
+        <textarea id="msg" placeholder="Hello {name}, your order {order_id} is confirmed. Thank you!"></textarea>
+        <div class="char-c"><span id="cc">0</span> / 4096</div>
+        <div class="chips hidden" id="chips-wrap">
+          <span style="font-size:11px;color:var(--t3);align-self:center;">Insert:</span>
+          <div id="chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+        <div class="hint" style="margin-top:8px;">Use <code style="color:var(--g);background:rgba(37,211,102,.08);padding:1px 5px;border-radius:4px;">{column}</code> for personalization. Click chips to insert.</div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="panel">
+      <div class="ph"><div class="ph-dot"></div><h2>Settings</h2></div>
+      <div class="pb">
+        <label class="lbl" style="margin-bottom:8px;">Mode</label>
+        <div class="tabs" style="margin-bottom:12px;">
+          <button class="tab on" onclick="setMode('links',this)">🔗&nbsp; WhatsApp Links</button>
+          <button class="tab" onclick="setMode('api',this)">🚀&nbsp; Business API</button>
+        </div>
+
+        <div id="m-links" class="info warn">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Opens wa.me for each contact. WhatsApp Web must be open. Best for &lt;100 contacts.</span>
+        </div>
+        <div id="m-api" class="info ok hidden">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Fully automated via Meta Cloud API. No manual clicks. Ideal for 3000+ contacts.</span>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div class="fld">
+            <label class="lbl">Delay (seconds)</label>
+            <input type="number" id="delay" value="3" min="1" max="60" onchange="updateSum()">
+            <div class="hint">Min 2s recommended</div>
+          </div>
+          <div class="fld">
+            <label class="lbl">Batch pause every N</label>
+            <input type="number" id="batch" value="50" min="5" max="500" onchange="updateSum()">
+            <div class="hint">15s pause between batches</div>
+          </div>
+          <div class="fld">
+            <label class="lbl">Start from row #</label>
+            <input type="number" id="sfrom" value="1" min="1">
+            <div class="hint">Resume from a row</div>
+          </div>
+          <div class="fld">
+            <label class="lbl">End at row # (0=all)</label>
+            <input type="number" id="eat" value="0" min="0">
+            <div class="hint">0 sends to everyone</div>
+          </div>
+        </div>
+
+        <div id="api-f" class="api-f hidden">
+          <div class="fld">
+            <label class="lbl">Bearer Token</label>
+            <input type="password" id="tok" placeholder="EAAxxxxxxxxxxxxxxxxx">
+            <div class="hint">Meta Business Manager → WhatsApp → API Setup</div>
+          </div>
+          <div class="fld">
+            <label class="lbl">Phone Number ID</label>
+            <input type="text" id="pnid" placeholder="1234567890123">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="panel hidden" id="prog-panel">
+      <div class="ph"><div class="ph-dot"></div><h2>Progress</h2><span class="ph-count" id="prog-pct" style="display:flex;">0%</span></div>
+      <div class="pb">
+        <div class="pbg"><div class="pfill" id="pfill" style="width:0%"></div></div>
+        <div class="pstats">
+          <div class="ps ok">✓ Sent: <strong id="ps-s">0</strong></div>
+          <div class="ps fail">✗ Failed: <strong id="ps-f">0</strong></div>
+          <div class="ps pend">◷ Left: <strong id="ps-r">0</strong></div>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+
+    <!-- Summary -->
+    <div class="panel">
+      <div class="ph"><div class="ph-dot"></div><h2>Summary</h2></div>
+      <div class="pb">
+        <div class="sum-row"><span class="k">Contacts</span><span class="v" id="sum-c">—</span></div>
+        <div class="sum-row"><span class="k">Valid</span><span class="v g" id="sum-v">—</span></div>
+        <div class="sum-row"><span class="k">Message</span><span class="v" id="sum-m">0 chars</span></div>
+        <div class="sum-row"><span class="k">Delay</span><span class="v" id="sum-d">3s</span></div>
+        <div class="sum-row"><span class="k">Batch</span><span class="v" id="sum-b">50</span></div>
+        <div class="sum-row"><span class="k">Est. time</span><span class="v" id="sum-t">—</span></div>
+        <div class="sum-row"><span class="k">Mode</span><span class="v" id="sum-mo">Links</span></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="panel">
+      <div class="pb" style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-g" id="sbtn" onclick="handleSend()">
+          <svg viewBox="0 0 32 32" fill="white"><path d="M16 1C7.72 1 1 7.72 1 16c0 2.68.7 5.2 1.93 7.38L1 31l7.87-1.89A15 15 0 0 0 16 31c8.28 0 15-6.72 15-15S24.28 1 16 1z"/></svg>
+          <span id="slbl">Send Messages</span>
+        </button>
+        <button class="btn btn-ghost" onclick="resetAll()">Reset</button>
+        <p style="font-size:11px;color:var(--t3);text-align:center;line-height:1.6;">For 3000+ contacts use <strong style="color:var(--t2)">Business API</strong> mode for full automation.</p>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="panel">
+      <div class="ph"><div class="ph-dot"></div><h2>Tips</h2></div>
+      <div class="pb">
+        <div class="tip"><span class="tip-icon">📋</span><span>Excel column headers become <code style="color:var(--g)">{variables}</code> in your message template.</span></div>
+        <div class="tip"><span class="tip-icon">🔢</span><span>Numbers need country code: <strong style="color:var(--t2)">+919876543210</strong> not 9876543210.</span></div>
+        <div class="tip"><span class="tip-icon">⏱</span><span>Keep delay ≥ 3s to reduce spam detection risk.</span></div>
+        <div class="tip"><span class="tip-icon">🔄</span><span>Use "Start from row" to resume an interrupted send.</span></div>
+        <div class="tip"><span class="tip-icon">🚀</span><span>Business API is the only way to fully automate 3000+ sends.</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let contacts=[], columns=[], sending=false, cancelled=false, mode='links';
+
+const fi=document.getElementById('fi'), mn=document.getElementById('mn'), msg=document.getElementById('msg'), dz=document.getElementById('dz');
+
+fi.addEventListener('change',e=>e.target.files[0]&&handleFile(e.target.files[0]));
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');e.dataTransfer.files[0]&&handleFile(e.dataTransfer.files[0]);});
+mn.addEventListener('input',parseManual);
+msg.addEventListener('input',()=>{document.getElementById('cc').textContent=msg.value.length;document.getElementById('sum-m').textContent=msg.value.length+' chars';});
+
+function handleFile(f){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      let rows=[];
+      if(f.name.toLowerCase().endsWith('.csv')){rows=parseCSV(new TextDecoder().decode(e.target.result));}
+      else{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{defval:''});}
+      if(!rows.length)return alert('No data found.');
+      columns=Object.keys(rows[0]);contacts=rows;
+      renderPreview();renderChips();fillPcol();updateStats();markStep(1);
+      dz.style.borderColor='var(--g)';
+      dz.querySelector('p').innerHTML=`<strong style="color:var(--g)">✓ ${f.name}</strong>`;
+    }catch(e){alert('Error: '+e.message);}
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function parseCSV(t){
+  const lines=t.trim().split('\n');if(lines.length<2)return[];
+  const h=lines[0].split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).filter(l=>l.trim()).map(l=>{const v=l.split(',');const o={};h.forEach((k,i)=>o[k]=(v[i]||'').trim().replace(/^"|"$/g,''));return o;});
+}
+
+function parseManual(){
+  const lines=mn.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  contacts=lines.map(l=>({phone:l}));columns=contacts.length?['phone']:[];
+  updateStats();if(contacts.length)markStep(1);renderChips();
+  document.getElementById('prev-w').classList.add('hidden');
+}
+
+function renderPreview(){
+  document.getElementById('prev-w').classList.remove('hidden');
+  const cols=columns.slice(0,6);
+  document.getElementById('prev-h').innerHTML=cols.map(c=>`<th>${c}</th>`).join('')+(columns.length>6?'<th>…</th>':'');
+  document.getElementById('prev-b').innerHTML=contacts.slice(0,5).map(r=>'<tr>'+cols.map(c=>`<td title="${String(r[c]).replace(/"/g,'&quot;')}">${r[c]}</td>`).join('')+'</tr>').join('');
+}
+
+function fillPcol(){
+  const s=document.getElementById('pcol');
+  s.innerHTML=columns.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const g=columns.find(c=>/phone|mobile|number|tel|whatsapp|no\b/i.test(c))||columns[0];
+  if(g)s.value=g;
+}
+
+function renderChips(){
+  const w=document.getElementById('chips-wrap'),r=document.getElementById('chips');
+  if(!columns.length){w.classList.add('hidden');return;}
+  w.classList.remove('hidden');
+  r.innerHTML=columns.map(c=>`<span class="chip" onclick="insertVar('{${c}}')">{${c}}</span>`).join('');
+}
+
+function insertVar(v){
+  const s=msg.selectionStart,e=msg.selectionEnd;
+  msg.value=msg.value.slice(0,s)+v+msg.value.slice(e);
+  msg.selectionStart=msg.selectionEnd=s+v.length;msg.focus();
+  document.getElementById('cc').textContent=msg.value.length;
+}
+
+function validPhone(p){return /^\+?[1-9]\d{7,14}$/.test(p.replace(/[\s\-\(\)\.]/g,''));}
+function cleanP(p){return String(p).replace(/[\s\-\(\)\.]/g,'').replace(/^00/,'+');}
+function getPhone(c){const col=document.getElementById('pcol').value||'phone';return String(c[col]||c['phone']||'');}
+
+function updateStats(){
+  const v=contacts.filter(c=>validPhone(cleanP(getPhone(c)))).length;
+  const t=contacts.length,b=t-v;
+  document.getElementById('st-row').classList.toggle('hidden',t===0);
+  document.getElementById('s-tot').textContent=t;
+  document.getElementById('s-ok').textContent=v;
+  document.getElementById('s-bad').textContent=b;
+  const tc=document.getElementById('top-count');
+  tc.textContent=t+' loaded';tc.style.display=t?'inline-flex':'none';
+  const pc=document.getElementById('ph-cnt');
+  pc.textContent=t;pc.style.display=t?'flex':'none';
+  updateSum();
+}
+
+function updateSum(){
+  const v=contacts.filter(c=>validPhone(cleanP(getPhone(c)))).length;
+  const d=parseFloat(document.getElementById('delay').value)||3;
+  const b=parseInt(document.getElementById('batch').value)||50;
+  const sec=v*d+Math.floor(v/b)*15;
+  const m=Math.floor(sec/60),s=Math.round(sec%60);
+  document.getElementById('sum-c').textContent=contacts.length||'—';
+  document.getElementById('sum-v').textContent=v||'—';
+  document.getElementById('sum-d').textContent=d+'s';
+  document.getElementById('sum-b').textContent=b;
+  document.getElementById('sum-t').textContent=contacts.length?(m>0?`~${m}m ${s}s`:`~${s}s`):'—';
+  document.getElementById('sum-mo').textContent=mode==='links'?'Links':'API';
+}
+
+function markStep(n){
+  ['st1','st2','st3'].forEach((id,i)=>{
+    document.getElementById(id).className='si'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+function setMode(m,btn){
+  mode=m;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('api-f').classList.toggle('hidden',m!=='api');
+  document.getElementById('m-links').classList.toggle('hidden',m!=='links');
+  document.getElementById('m-api').classList.toggle('hidden',m!=='api');
+  updateSum();
+}
+
+function buildMsg(tpl,c){return tpl.replace(/\{(\w+)\}/g,(_,k)=>c[k]!==undefined?c[k]:`{${k}}`);}
+function log(txt,type=''){const b=document.getElementById('log');const d=document.createElement('div');d.className='ll'+(type?' '+type:'');const t=new Date().toLocaleTimeString();d.textContent=`[${t}] ${txt}`;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function handleSend(){if(sending){cancelled=true;return;}startSend();}
+
+async function startSend(){
+  if(!contacts.length)return alert('Upload contacts or paste numbers first.');
+  const m=msg.value.trim();if(!m)return alert('Write a message first.');
+  const d=parseFloat(document.getElementById('delay').value)*1000||3000;
+  const b=parseInt(document.getElementById('batch').value)||50;
+  const sf=Math.max(1,parseInt(document.getElementById('sfrom').value)||1);
+  const ea=parseInt(document.getElementById('eat').value)||0;
+  const all=contacts.filter(c=>validPhone(cleanP(getPhone(c))));
+  const list=all.slice(sf-1,ea>0?ea:undefined);
+  if(!list.length)return alert('No valid numbers in selected range. Check phone column & format (+countrycode).');
+  sending=true;cancelled=false;
+  const btn=document.getElementById('sbtn');
+  btn.className='btn btn-stop';document.getElementById('slbl').textContent='⛔  Stop';
+  btn.onclick=()=>{cancelled=true;};
+  document.getElementById('prog-panel').classList.remove('hidden');
+  document.getElementById('log').innerHTML='';
+  markStep(2);
+  let sent=0,fail=0;const tot=list.length;
+  function upd(){const p=Math.round((sent+fail)/tot*100);document.getElementById('pfill').style.width=p+'%';document.getElementById('prog-pct').textContent=p+'%';document.getElementById('ps-s').textContent=sent;document.getElementById('ps-f').textContent=fail;document.getElementById('ps-r').textContent=tot-sent-fail;}
+  upd();log(`Starting — ${tot} contacts`,  'warn');
+  for(let i=0;i<list.length;i++){
+    if(cancelled){log('Stopped.','err');break;}
+    const c=list[i],p=cleanP(getPhone(c)),pm=buildMsg(m,c),em=encodeURIComponent(pm);
+    try{
+      if(mode==='links'){window.open(`https://wa.me/${p.replace('+','')}?text=${em}`,'_blank');log(`✓ ${p}`,'ok');sent++;}
+      else{
+        const tok=document.getElementById('tok').value.trim(),pnid=document.getElementById('pnid').value.trim();
+        if(!tok||!pnid){log('Missing API token or Phone Number ID','err');fail++;upd();continue;}
+        const res=await fetch(`https://graph.facebook.com/v18.0/${pnid}/messages`,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',to:p.replace('+',''),type:'text',text:{body:pm}})});
+        if(res.ok){log(`✓ API: ${p}`,'ok');sent++;}
+        else{const er=await res.json();log(`✗ ${p} — ${er.error?.message||res.status}`,'err');fail++;}
+      }
+    }catch(e){log(`✗ ${p} — ${e.message}`,'err');fail++;}
+    upd();
+    if((i+1)<list.length){if((i+1)%b===0){log(`Batch pause — ${i+1} done, waiting 15s…`,'warn');await sleep(15000);}else await sleep(d);}
+  }
+  log(`Done — ✓ ${sent} sent · ✗ ${fail} failed`,sent>0?'ok':'err');
+  markStep(3);sending=false;
+  btn.className='btn btn-g';document.getElementById('slbl').textContent='Send Messages';
+  btn.onclick=handleSend;
+}
+
+function resetAll(){
+  if(sending){alert('Stop sending first.');return;}
+  contacts=[];columns=[];mn.value='';msg.value='';fi.value='';
+  document.getElementById('cc').textContent='0';
+  document.getElementById('st-row').classList.add('hidden');
+  document.getElementById('prev-w').classList.add('hidden');
+  document.getElementById('chips-wrap').classList.add('hidden');
+  document.getElementById('prog-panel').classList.add('hidden');
+  document.getElementById('top-count').style.display='none';
+  document.getElementById('ph-cnt').style.display='none';
+  dz.style.borderColor='';
+  dz.querySelector('p').innerHTML='<strong>Drop file here</strong> or click to browse';
+  ['st1','st2','st3'].forEach((id,i)=>document.getElementById(id).className='si'+(i===0?' active':''));
+  updateSum();
+}
+updateSum();
+</script>
+</body>
+</html>
